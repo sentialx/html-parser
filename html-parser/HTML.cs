@@ -1,9 +1,16 @@
-﻿using System;
+﻿using html_parser.Enums;
 using System.Collections.Generic;
-using System.Text;
 
 namespace html_parser {
     class HTML {
+        public static Document Parse(string html) {
+
+        }
+        /// <summary>
+        /// Minifies html code.
+        /// </summary>
+        /// <param name="html"></param>
+        /// <returns>Minified html code</returns>
         public static string Minify(string[] html) {
             string htmlMin = "";
 
@@ -14,6 +21,37 @@ namespace html_parser {
             return htmlMin;
         }
 
+        /// <summary>
+        /// Determines given tag code type.
+        /// </summary>
+        /// <param name="token"></param>
+        /// <returns>Tag type</returns>
+        public static TagType GetTagType(string token) {
+            if (token[0] == '<') {
+                if (token[1] == '/') {
+                    return TagType.Closing;
+                } else {
+                    return TagType.Opening;
+                }
+            } else {
+                return TagType.Text;
+            }
+        }
+
+        /// <summary>
+        /// Gets tag name from tag code (ie. <div>).
+        /// </summary>
+        /// <param name="source"></param>
+        /// <returns>Tag name</returns>
+        public static string GetTagName(string source) {
+            return source.Replace("<", "").Replace("/", "").Replace(">", "");
+        }
+
+        /// <summary>
+        /// Separates a HTML code to tokens.
+        /// </summary>
+        /// <param name="html"></param>
+        /// <returns>List of tokens</returns>
         public static List<string> Tokenize(string html) {
             List<string> tokens = new List<string>();
 
@@ -30,7 +68,7 @@ namespace html_parser {
                         capturing = true;
                     }
                     capturedText = "";
-                } else if (c == '>') {
+                } else if (c == '>' || i == html.Length - 1) {
                     capturing = false;
                     capturedText += c;
                     tokens.Add(capturedText);
@@ -47,45 +85,61 @@ namespace html_parser {
             return tokens;
         }
 
+        /// <summary>
+        /// Builds DOM tree using tokens generated from tokenizer.
+        /// </summary>
+        /// <param name="tokens"></param>
+        /// <returns>List of parent elements</returns>
         public static List<DOMElement> BuildTree(List<string> tokens) {
             List<DOMElement> elements = new List<DOMElement>();
             DOMElement parent = null;
+            DOMElement firstParent = null;
 
             for (int i = 0; i < tokens.Count; i++) {
                 string token = tokens[i];
 
-                DOMElement element = new DOMElement();
+                string tagName = GetTagName(token).ToUpper();
+                TagType tagType = GetTagType(token);
 
-                string elementType = "text";
-                string tagName = GetTagName(token);
+                if (tagType == TagType.Opening || tagType == TagType.Text) {
+                    DOMElement element = new DOMElement();
 
-                if (token[0] == '<') {
-                    if (token[1] == '/') {
-                        elementType = "closing";
-                    } else {
-                        elementType = "opening";
-                    }
-                }
+                    bool newFirstParent = false;
 
-                if (elementType == "opening" || elementType == "text") {
                     if (parent != null) {
                         element.ParentNode = parent;
                         parent.Children.Add(element);
                     } else {
                         elements.Add(element);
+                        firstParent = element;
+                        newFirstParent = true;
                     }
 
-                    if (elementType == "opening") {
+                    if (tagType == TagType.Opening) {
                         element.TagName = tagName;
                         element.NodeType = NodeType.Element;
+
+                        firstParent.OuterHTML += token;
+                        if (!newFirstParent) {
+                            firstParent.InnerHTML += token;
+                        }
+
                         parent = element;
-                    } else {
+                    } else if (tagType == TagType.Text) {
                         element.NodeType = NodeType.Text;
                         element.NodeValue = token;
+
+                        firstParent.OuterHTML += token;
+                        firstParent.InnerHTML += token;
                     }
-                } else if (elementType == "closing") {
+                } else if (tagType == TagType.Closing) {
                     if (parent != null) {
                         if (parent.TagName == tagName) {
+                            firstParent.OuterHTML += token;
+                            if (firstParent != parent) {
+                                firstParent.InnerHTML += token;
+                            }
+
                             parent = parent.ParentNode;
                         } else {
                             if (parent.ParentNode != null && tokens[i - 1][1] != '/' && parent.Children.Count != 0) {
@@ -99,8 +153,48 @@ namespace html_parser {
             return elements;
         }
 
-        public static string GetTagName(string source) {
-            return source.Replace("<", "").Replace("/", "").Replace(">", "");
+        /// <summary>
+        /// Passes recursively innerHTML and outerHTML to each element.
+        /// </summary>
+        /// <param name="elements"></param>
+        /// <param name="tokens"></param>
+        public static void PassHTMLToElements(ref List<DOMElement> elements, List<string> tokens = null) {
+            foreach (DOMElement element in elements) {
+                var newTokens = new List<string>();
+
+                if (tokens == null) newTokens = Tokenize(element.InnerHTML);
+
+                if (element.ParentNode != null) {
+                    element.OuterHTML = element.ParentNode.InnerHTML;
+
+                    string innerHTML = "";
+
+                    int openingTags = 0;
+                    int closingTags = 0;
+
+                    for (int i = 0; i < tokens.Count; i++) {
+                        var token = tokens[i];
+                        var tagType = GetTagType(token);
+
+                        if (tagType == TagType.Opening) openingTags++;
+                        else if (tagType == TagType.Closing) closingTags++;
+
+                        if (i != 0) {
+                            if (i == tokens.Count - 1 && tagType == TagType.Closing && closingTags == openingTags) {
+                                continue;
+                            }
+
+                            innerHTML += token;
+                            newTokens.Add(token);
+                        }
+                    }
+
+                    element.InnerHTML = innerHTML;
+                }
+                if (element.Children.Count > 0) {
+                    PassHTMLToElements(ref element.Children, newTokens);
+                }
+            }
         }
     }
 }
