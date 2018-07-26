@@ -1,8 +1,14 @@
 ﻿using html_parser.Enums;
+using System;
 using System.Collections.Generic;
 
 namespace html_parser {
     public class HTML {
+        public static List<string> selfClosingTags = new List<string>() {
+            "AREA", "BASE", "BR", "COL", "COMMAND", "EMBED", "HR", "IMG", "INPUT",
+            "KEYGEN", "LINK", "MENUITEM", "META", "PARAM", "SOURCE", "TRACK", "WBR"
+        };
+
         /// <summary>
         /// Parses HTML code to a Document object.
         /// </summary>
@@ -167,8 +173,11 @@ namespace html_parser {
         /// <returns>Tag type</returns>
         public static TagType GetTagType(string token) {
             if (token[0] == '<') {
+                string tagName = GetTagName(token);
                 if (token[1] == '/') {
                     return TagType.Closing;
+                } else if (selfClosingTags.Contains(tagName)) {
+                    return TagType.SelfClosed;
                 } else {
                     return TagType.Opening;
                 }
@@ -183,7 +192,7 @@ namespace html_parser {
         /// <param name="source"></param>
         /// <returns>Tag name</returns>
         public static string GetTagName(string source) {
-            return source.Replace("<", "").Replace("/", "").Replace(">", "");
+            return source.Replace("<", "").Replace("/", "").Replace(">", "").Trim();
         }
 
         /// <summary>
@@ -250,8 +259,24 @@ namespace html_parser {
 
                 string tagName = GetTagName(token).ToUpper();
                 TagType tagType = GetTagType(token);
+                
+                if (tagType == TagType.SelfClosed) {
+                    DOMElement element = new DOMElement() {
+                        NodeType = NodeType.Element,
+                    };
 
-                if (tagType == TagType.Opening || tagType == TagType.Text) {
+                    if (parent != null) {
+                        element.ParentNode = parent;
+                        parent.Children.Add(element);
+                    } else {
+                        elements.Add(element);
+                    }
+
+                    if (firstParent != null) {
+                        firstParent.OuterHTML += token;
+                        firstParent.InnerHTML += token;
+                    }
+                } else if (tagType == TagType.Opening || tagType == TagType.Text) {
                     DOMElement element = new DOMElement();
 
                     bool newFirstParent = false;
@@ -292,7 +317,7 @@ namespace html_parser {
 
                             parent = parent.ParentNode;
                         } else {
-                            if (parent.ParentNode != null && tokens[i - 1][1] != '/' && parent.Children.Count != 0) {
+                            if (parent.ParentNode != null && GetTagType(tokens[i - 1]) != TagType.Closing && parent.Children.Count != 0) {
                                 parent = parent.ParentNode.ParentNode;
                             }
                         }
@@ -312,7 +337,7 @@ namespace html_parser {
             foreach (DOMElement element in elements) {
                 var newTokens = new List<string>();
 
-                if (tokens == null) newTokens = Tokenize(element.InnerHTML);
+                if (tokens == null && element.InnerHTML != null) newTokens = Tokenize(element.InnerHTML);
 
                 if (element.ParentNode != null) {
                     element.OuterHTML = element.ParentNode.InnerHTML;
