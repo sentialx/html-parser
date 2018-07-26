@@ -3,6 +3,11 @@ using System.Collections.Generic;
 
 namespace html_parser {
     public class HTML {
+        /// <summary>
+        /// Parses HTML code to a Document object.
+        /// </summary>
+        /// <param name="html"></param>
+        /// <returns>Document</returns>
         public static Document Parse(string html) {
             var tokens = Tokenize(html);
             var elements = BuildTree(tokens);
@@ -36,6 +41,7 @@ namespace html_parser {
                 if (headElement == null) {
                     headElement = new DOMElement() {
                         TagName = "HEAD",
+                        OuterHTML = "<head></head>",
                     };
                 }
 
@@ -44,11 +50,16 @@ namespace html_parser {
                         TagName = "BODY",
                     };
 
+                    string innerHTML = "";
+
                     foreach (DOMElement element in otherChildren) {
                         element.ParentNode = bodyElement;
+                        innerHTML += element.OuterHTML;
                     }
 
                     bodyElement.Children = otherChildren;
+                    bodyElement.InnerHTML = innerHTML;
+                    bodyElement.OuterHTML = "<body>" + innerHTML + "</body>";
                 }
 
                 documentElement.Children.Add(headElement);
@@ -69,6 +80,7 @@ namespace html_parser {
                 if (headElement == null) {
                     headElement = new DOMElement() {
                         TagName = "HEAD",
+                        OuterHTML = "<head></head>",
                     };
                     documentElement.Children.Insert(0, headElement);
                 }
@@ -78,19 +90,35 @@ namespace html_parser {
                         TagName = "BODY",
                     };
 
+                    string innerHTML = "";
+
                     foreach (DOMElement element in children) {
                         documentElement.Children.Remove(element);
                         element.ParentNode = bodyElement;
+                        innerHTML += element.OuterHTML;
                     }
 
                     bodyElement.Children = children;
+
+                    bodyElement.InnerHTML = innerHTML;
+                    bodyElement.OuterHTML = "<body>" + innerHTML + "</body>";
 
                     documentElement.Children.Insert(1, bodyElement);
                 }
             }
 
+            if (documentElement.OuterHTML == null) {
+                string innerHTML = "";
+                foreach (DOMElement element in documentElement.Children) {
+                    innerHTML += element.OuterHTML;
+                }
+                documentElement.InnerHTML = innerHTML;
+                documentElement.OuterHTML = "<html>" + innerHTML + "</html>";
+            }
+
             document.Children.Add(documentElement);
 
+            document.DocumentElement = documentElement;
             document.Body = bodyElement;
             document.Head = headElement;
 
