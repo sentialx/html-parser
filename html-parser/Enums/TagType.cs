@@ -1,5 +1,5 @@
 ﻿namespace html_parser.Enums {
-    enum TagType {
+    public enum TagType {
         Opening,
         Closing,
         SelfClosed,

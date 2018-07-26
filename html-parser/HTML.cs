@@ -2,10 +2,101 @@
 using System.Collections.Generic;
 
 namespace html_parser {
-    class HTML {
+    public class HTML {
         public static Document Parse(string html) {
+            var tokens = Tokenize(html);
+            var elements = BuildTree(tokens);
+            PassHTMLToElements(ref elements);
 
+            Document document = new Document();
+
+            DOMElement documentElement = null;
+            DOMElement bodyElement = null;
+            DOMElement headElement = null;
+
+            var otherChildren = new List<DOMElement>();
+
+            foreach (DOMElement element in elements) {
+                if (element.TagName == "html") {
+                    documentElement = element;
+                } else if (element.TagName == "head") {
+                    headElement = element;
+                } else if (element.TagName == "body") {
+                    bodyElement = element;
+                } else {
+                    otherChildren.Add(element);
+                }
+            }
+
+            if (documentElement == null) {
+                documentElement = new DOMElement() {
+                    TagName = "HTML",
+                };
+
+                if (headElement == null) {
+                    headElement = new DOMElement() {
+                        TagName = "HEAD",
+                    };
+                }
+
+                if (bodyElement == null) {
+                    bodyElement = new DOMElement() {
+                        TagName = "BODY",
+                    };
+
+                    foreach (DOMElement element in otherChildren) {
+                        element.ParentNode = bodyElement;
+                    }
+
+                    bodyElement.Children = otherChildren;
+                }
+
+                documentElement.Children.Add(headElement);
+                documentElement.Children.Add(bodyElement);
+            } else {
+                var children = new List<DOMElement>();
+
+                foreach (DOMElement element in documentElement.Children) {
+                    if (element.TagName == "head") {
+                        headElement = element;
+                    } else if (element.TagName == "body") {
+                        bodyElement = element;
+                    } else {
+                        children.Add(element);
+                    }
+                }
+
+                if (headElement == null) {
+                    headElement = new DOMElement() {
+                        TagName = "HEAD",
+                    };
+                    documentElement.Children.Insert(0, headElement);
+                }
+
+                if (bodyElement == null) {
+                    bodyElement = new DOMElement() {
+                        TagName = "BODY",
+                    };
+
+                    foreach (DOMElement element in children) {
+                        documentElement.Children.Remove(element);
+                        element.ParentNode = bodyElement;
+                    }
+
+                    bodyElement.Children = children;
+
+                    documentElement.Children.Insert(1, bodyElement);
+                }
+            }
+
+            document.Children.Add(documentElement);
+
+            document.Body = bodyElement;
+            document.Head = headElement;
+
+            return document;
         }
+
         /// <summary>
         /// Minifies html code.
         /// </summary>

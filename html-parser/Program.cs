@@ -5,9 +5,7 @@ namespace html_parser {
         static void Main(string[] args) {
             string html = "<div><div><div><div>aha</div></div>";
 
-            var tokens = HTML.Tokenize(html);
-            var elements = HTML.BuildTree(tokens);
-            HTML.PassHTMLToElements(ref elements);
+            Document document = HTML.Parse(html);
 
             Console.ReadKey();
         }

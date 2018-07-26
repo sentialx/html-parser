@@ -1,5 +1,5 @@
 ﻿namespace html_parser.Enums {
-    enum NodeType {
+    public enum NodeType {
         Element = 1,
         Attribute = 2,
         Text = 3,
