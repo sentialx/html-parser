@@ -17,7 +17,6 @@ namespace html_parser {
         public static Document Parse(string html) {
             var tokens = Tokenize(html);
             var elements = BuildTree(tokens);
-            PassHTMLToElements(ref elements);
 
             Document document = new Document();
 
@@ -326,50 +325,6 @@ namespace html_parser {
             }
 
             return elements;
-        }
-
-        /// <summary>
-        /// Passes recursively innerHTML and outerHTML to each element.
-        /// </summary>
-        /// <param name="elements"></param>
-        /// <param name="tokens"></param>
-        public static void PassHTMLToElements(ref List<DOMElement> elements, List<string> tokens = null) {
-            foreach (DOMElement element in elements) {
-                var newTokens = new List<string>();
-
-                if (tokens == null && element.InnerHTML != null) newTokens = Tokenize(element.InnerHTML);
-
-                if (element.ParentNode != null) {
-                    element.OuterHTML = element.ParentNode.InnerHTML;
-
-                    string innerHTML = "";
-
-                    int openingTags = 0;
-                    int closingTags = 0;
-
-                    for (int i = 0; i < tokens.Count; i++) {
-                        var token = tokens[i];
-                        var tagType = GetTagType(token);
-
-                        if (tagType == TagType.Opening) openingTags++;
-                        else if (tagType == TagType.Closing) closingTags++;
-
-                        if (i != 0) {
-                            if (i == tokens.Count - 1 && tagType == TagType.Closing && closingTags == openingTags) {
-                                continue;
-                            }
-
-                            innerHTML += token;
-                            newTokens.Add(token);
-                        }
-                    }
-
-                    element.InnerHTML = innerHTML;
-                }
-                if (element.Children.Count > 0) {
-                    PassHTMLToElements(ref element.Children, newTokens);
-                }
-            }
         }
     }
 }
