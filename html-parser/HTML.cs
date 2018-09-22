@@ -20,132 +20,9 @@ namespace html_parser {
 
             Document document = new Document();
 
-            DOMElement documentElement = null;
-            DOMElement bodyElement = null;
-            DOMElement headElement = null;
-
-            var otherChildren = new List<DOMElement>();
-
-            // Search for <html>, <head> and <body> elements.
-            foreach (DOMElement element in elements) {
-                if (element.TagName == "html") {
-                    documentElement = element;
-                } else if (element.TagName == "head") {
-                    headElement = element;
-                } else if (element.TagName == "body") {
-                    bodyElement = element;
-                } else {
-                    // Get other children to append them to the new <body> element if not exists.
-                    otherChildren.Add(element);
-                }
+            document.Body = new DOMElement() {
+                Children = elements
             }
-
-            // If there is no <html> element
-            if (documentElement == null) {
-                // Create the <html> element.
-                documentElement = new DOMElement() {
-                    TagName = "HTML",
-                };
-
-                // If there is no <head> element
-                if (headElement == null) {
-                    // Create it.
-                    headElement = new DOMElement() {
-                        TagName = "HEAD",
-                        OuterHTML = "<head></head>",
-                    };
-                }
-
-                // If there is no <body> element
-                if (bodyElement == null) {
-                    // Create it.
-                    bodyElement = new DOMElement() {
-                        TagName = "BODY",
-                    };
-
-                    string innerHTML = "";
-
-                    foreach (DOMElement element in otherChildren) {
-                        // Set children's ParentNode property to the <body> element.
-                        element.ParentNode = bodyElement;
-                        // Get innerHTML from children.
-                        innerHTML += element.OuterHTML;
-                    }
-
-                    // Append children to <body> element.
-                    bodyElement.Children = otherChildren;
-
-                    // Pass HTML code to <body> element.
-                    bodyElement.InnerHTML = innerHTML;
-                    bodyElement.OuterHTML = "<body>" + innerHTML + "</body>";
-                }
-
-                // Add <head> and <body> elements to the <html> element's children.
-                documentElement.Children.Add(headElement);
-                documentElement.Children.Add(bodyElement);
-            } else {
-                // Search for <head> and <body> elements and other children.
-                foreach (DOMElement element in documentElement.Children) {
-                    if (element.TagName == "head") {
-                        headElement = element;
-                    } else if (element.TagName == "body") {
-                        bodyElement = element;
-                    } else {
-                        otherChildren.Add(element);
-                    }
-                }
-
-                if (headElement == null) {
-                    headElement = new DOMElement() {
-                        TagName = "HEAD",
-                        OuterHTML = "<head></head>",
-                    };
-                    // Add the new <head> element as a first child of <html> element.
-                    documentElement.Children.Insert(0, headElement);
-                }
-
-                if (bodyElement == null) {
-                    bodyElement = new DOMElement() {
-                        TagName = "BODY",
-                    };
-
-                    string innerHTML = "";
-
-                    foreach (DOMElement element in otherChildren) {
-                        // Remove <html> element's children.
-                        documentElement.Children.Remove(element);
-                        // Set children's ParentNode property to the <body> element.
-                        element.ParentNode = bodyElement;
-                        // Get innerHTML from children.
-                        innerHTML += element.OuterHTML;
-                    }
-
-                    bodyElement.Children = otherChildren;
-
-                    bodyElement.InnerHTML = innerHTML;
-                    bodyElement.OuterHTML = "<body>" + innerHTML + "</body>";
-
-                    // Add the new <body> element as a second child of <html> element (after <head>).
-                    documentElement.Children.Insert(1, bodyElement);
-                }
-            }
-
-            // The generated <html> has no OuterHTML and InnerHTML properties,
-            // so we need to get InnerHTML from its children and apply it.
-            if (documentElement.OuterHTML == null) {
-                string innerHTML = "";
-                foreach (DOMElement element in documentElement.Children) {
-                    innerHTML += element.OuterHTML;
-                }
-                documentElement.InnerHTML = innerHTML;
-                documentElement.OuterHTML = "<html>" + innerHTML + "</html>";
-            }
-
-            document.Children.Add(documentElement);
-
-            document.DocumentElement = documentElement;
-            document.Body = bodyElement;
-            document.Head = headElement;
 
             return document;
         }
@@ -251,69 +128,35 @@ namespace html_parser {
         public static List<DOMElement> BuildTree(List<string> tokens) {
             List<DOMElement> elements = new List<DOMElement>();
             DOMElement parent = null;
-            DOMElement firstParent = null;
 
             for (int i = 0; i < tokens.Count; i++) {
                 string token = tokens[i];
 
                 string tagName = GetTagName(token).ToUpper();
                 TagType tagType = GetTagType(token);
-                
-                if (tagType == TagType.SelfClosed) {
+
+                if (tagType == TagType.SelfClosed || tagType == TagType.Opening || tagType == TagType.Text) {
                     DOMElement element = new DOMElement() {
                         NodeType = NodeType.Element,
                     };
-
+                    
                     if (parent != null) {
                         element.ParentNode = parent;
                         parent.Children.Add(element);
                     } else {
                         elements.Add(element);
-                    }
-
-                    if (firstParent != null) {
-                        firstParent.OuterHTML += token;
-                        firstParent.InnerHTML += token;
-                    }
-                } else if (tagType == TagType.Opening || tagType == TagType.Text) {
-                    DOMElement element = new DOMElement();
-
-                    bool newFirstParent = false;
-
-                    if (parent != null) {
-                        element.ParentNode = parent;
-                        parent.Children.Add(element);
-                    } else {
-                        elements.Add(element);
-                        firstParent = element;
-                        newFirstParent = true;
                     }
 
                     if (tagType == TagType.Opening) {
                         element.TagName = tagName;
-                        element.NodeType = NodeType.Element;
-
-                        firstParent.OuterHTML += token;
-                        if (!newFirstParent) {
-                            firstParent.InnerHTML += token;
-                        }
-
                         parent = element;
                     } else if (tagType == TagType.Text) {
                         element.NodeType = NodeType.Text;
                         element.NodeValue = token;
-
-                        firstParent.OuterHTML += token;
-                        firstParent.InnerHTML += token;
                     }
                 } else if (tagType == TagType.Closing) {
                     if (parent != null) {
                         if (parent.TagName == tagName) {
-                            firstParent.OuterHTML += token;
-                            if (firstParent != parent) {
-                                firstParent.InnerHTML += token;
-                            }
-
                             parent = parent.ParentNode;
                         } else {
                             if (parent.ParentNode != null && GetTagType(tokens[i - 1]) != TagType.Closing && parent.Children.Count != 0) {
