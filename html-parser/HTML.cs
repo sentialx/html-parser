@@ -20,9 +20,7 @@ namespace html_parser {
 
             Document document = new Document();
 
-            document.Body = new DOMElement() {
-                Children = elements
-            };
+            document.Children = elements;
 
             return document;
         }
@@ -119,6 +117,18 @@ namespace html_parser {
 
             return tokens;
         }
+        
+        public static DOMElement GetOpeningTag(string tagName, DOMElement element) {
+            if (element != null) {
+                if (element.TagName == tagName) {
+                    return element;
+                } else {
+                    return GetOpeningTag(tagName, element.ParentNode);
+                }
+            }
+
+            return null;
+        }
 
         /// <summary>
         /// Builds DOM tree using tokens generated from tokenizer.
@@ -127,6 +137,8 @@ namespace html_parser {
         /// <returns>List of parent elements</returns>
         public static List<DOMElement> BuildTree(List<string> tokens) {
             List<DOMElement> elements = new List<DOMElement>();
+            List<string> openedTags = new List<string>();
+
             DOMElement parent = null;
 
             for (int i = 0; i < tokens.Count; i++) {
@@ -150,19 +162,25 @@ namespace html_parser {
                     if (tagType == TagType.Opening) {
                         element.TagName = tagName;
                         parent = element;
+                        openedTags.Add(tagName);
                     } else if (tagType == TagType.Text) {
                         element.NodeType = NodeType.Text;
                         element.NodeValue = token;
                     }
                 } else if (tagType == TagType.Closing) {
                     if (parent != null) {
-                        if (parent.TagName == tagName) {
-                            parent = parent.ParentNode;
-                        } else {
-                            if (parent.ParentNode != null && GetTagType(tokens[i - 1]) != TagType.Closing && parent.Children.Count != 0) {
-                                parent = parent.ParentNode.ParentNode;
+                        var openedTagIndex = openedTags.LastIndexOf(tagName);
+
+                        if (openedTagIndex != -1) {
+                            if (parent.TagName == tagName) {
+                                parent = parent.ParentNode;
+                            } else {
+                                parent = GetOpeningTag(tagName, parent);
                             }
+
+                            openedTags.RemoveAt(openedTagIndex);
                         }
+                       
                     }
                 }
             }
