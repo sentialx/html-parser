@@ -175,7 +175,10 @@ namespace html_parser {
                             if (parent.TagName == tagName) {
                                 parent = parent.ParentNode;
                             } else {
-                                parent = GetOpeningTag(tagName, parent).ParentNode;
+                                var el = GetOpeningTag(tagName, parent);
+                                if (el != null) {
+                                    parent = el.ParentNode;
+                                }
                             }
 
                             openedTags.RemoveAt(openedTagIndex);
