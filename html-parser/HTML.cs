@@ -22,7 +22,7 @@ namespace html_parser {
 
             document.Body = new DOMElement() {
                 Children = elements
-            }
+            };
 
             return document;
         }
